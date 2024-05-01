@@ -1,0 +1,28 @@
+services:
+  fastapi:
+    build: ./BE
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./BE:/app
+    depends_on:
+      - db
+      - elasticsearch
+
+  db:
+    image: mysql:8.0
+    volumes:
+      - db-data:/var/lib/mysql
+    env_file:
+      - ./BE/env/db.env
+  
+  elasticsearch:
+    image: elasticsearch:7.9.2
+    environment:
+      - discovery.type=single-node
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
+volumes:
+  db-data:
+  es-data:
