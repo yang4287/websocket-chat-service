@@ -22,6 +22,25 @@ services:
       - discovery.type=single-node
     volumes:
       - es-data:/usr/share/elasticsearch/data
+  
+  # npm-tool:
+  #   image: node:21-alpine
+  #   volumes:
+  #     - ./FE:/app
+  #   stdin_open: true
+  #   tty: true
+
+  vuejs:
+    build: ./FE
+    ports:
+      - "8080:5173"
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./FE:/app
+      - /app/node_modules
+    depends_on:
+      - fastapi
 
 volumes:
   db-data:
