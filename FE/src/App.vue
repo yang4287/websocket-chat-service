@@ -1,35 +1,52 @@
 <template>
-  <div id="app">
-    <login-component v-if="!isLoggedIn" @login="handleLogin" />
-    <chat-component v-if="isLoggedIn" :ws="websocket" />
+  <div>
+    <login v-if="!isLoggedIn" @client-id-received="setupWebSocket"></login>
+    <chat-room
+      v-if="isLoggedIn"
+      :ws="ws"
+      :current-user-id="currentUserId"
+      @left-chatroom="handleLeftChatroom"
+    ></chat-room>
   </div>
 </template>
 
 <script>
-import LoginComponent from './components/LoginComponent.vue'
-import ChatComponent from './components/ChatComponent.vue'
+import Login from "./components/Login.vue";
+import ChatRoom from "./components/ChatRoom.vue";
 
 export default {
   components: {
-    LoginComponent,
-    ChatComponent
+    Login,
+    ChatRoom,
   },
   data() {
     return {
+      ws: null,
       isLoggedIn: false,
-      websocket: null
+      currentUserId: null,
     };
   },
   methods: {
-    handleLogin(username) {
-      this.websocket = new WebSocket(`ws://localhost:8000/ws/${username}`);
-      this.websocket.onopen = () => {
+    setupWebSocket(clientId) {
+      this.currentUserId = clientId;
+      console.log(this.currentUserId);
+      this.ws = new WebSocket(`ws://localhost:8000/ws/${clientId}`);
+      this.ws.onopen = () => {
+        console.log("WebSocket connection established");
         this.isLoggedIn = true;
       };
-      this.websocket.onerror = (error) => {
-        console.error('WebSocket Error: ', error);
+      this.ws.onerror = (error) => {
+        console.error("WebSocket error: ", error);
       };
-    }
-  }
-}
+      // this.ws.onclose = () => {
+      //   console.log("WebSocket connection closed");
+      //   this.isLoggedIn = false;
+      //   this.ws = null;
+      // };
+    },
+    handleLeftChatroom() {
+      this.isLoggedIn = false;
+    },
+  },
+};
 </script>
