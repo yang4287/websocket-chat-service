@@ -27,10 +27,11 @@
             <span class="user-name">{{ message.userName }}</span>
             <div class="message-content">
               <div class="message-text">{{ message.text }}</div>
-              <!-- <div class="message-time">{{ message.time }}</div> -->
+              <div class="message-time">{{ message.time }}</div>
             </div>
           </template>
           <template v-else>
+            <div class="message-time">{{ message.time }}</div>
             <div class="system-message">{{ message.text }}</div>
           </template>
         </li>
@@ -44,6 +45,8 @@
 </template>
 
 <script>
+import moment from "moment-timezone";
+
 export default {
   props: ["ws", "currentUserId"],
   data() {
@@ -58,12 +61,15 @@ export default {
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       this.participantsCount = data.num_participants;
+      const formattedTime =
+        moment(data.created_at).format("YYYY-MM-DD HH:mm") + " 台灣";
       if (data.type === "join") {
         this.messages.push({
           userName: data.client_id,
           text: `${data.client_id} 加入聊天室`,
           id: this.messages.length,
           type: data.type,
+          time: formattedTime,
         });
       } else if (data.type === "message") {
         this.messages.push({
@@ -71,6 +77,7 @@ export default {
           text: data.message,
           id: this.messages.length,
           type: data.type,
+          time: formattedTime,
         });
       } else if (data.type === "leave") {
         this.messages.push({
@@ -78,6 +85,7 @@ export default {
           text: `${data.client_id} 離開聊天室`,
           id: this.messages.length,
           type: data.type,
+          time: formattedTime,
         });
       }
     };
@@ -102,6 +110,14 @@ export default {
       }
       alert("你已離開聊天室！");
       this.$emit("left-chatroom");
+    },
+    formatTimeToZone(
+      dateString,
+      zone = "Asia/Taipei",
+      formatStr = "yyyy-MM-dd HH:mm:ss"
+    ) {
+      const zonedDate = utcToZonedTime(dateString, zone);
+      return format(zonedDate, formatStr) + " 台灣";
     },
   },
   updated() {
@@ -161,13 +177,19 @@ export default {
 
 .message {
   display: flex;
-  justify-content: space-around;
+  flex-direction: column;
   margin-top: 0.5%;
+}
+
+.message-time {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #999;
+  text-align: center;
 }
 
 .my-message {
   justify-content: flex-end;
-  flex-direction: column;
   align-items: flex-end;
 }
 
@@ -179,7 +201,6 @@ export default {
 
 .other-message {
   justify-content: flex-start;
-  flex-direction: column;
   align-items: flex-start;
 }
 
@@ -244,6 +265,7 @@ export default {
   text-align: center;
   color: #888;
   font-style: italic;
+  font: 0.8em sans-serif;
 }
 
 .leave-button {
