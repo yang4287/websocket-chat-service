@@ -8,6 +8,8 @@ from models.chat_event import ChatEvent
 from sqlalchemy.orm import Session
 from config.database import SessionLocal
 
+# from elasticsearch import Elasticsearch
+
 app = FastAPI()
 
 # 設定 CORS，允許所有來源 (DEV用)
@@ -42,6 +44,22 @@ def read_root():
     return {"Hello": "World"}
 
 
+@app.get("/search")
+async def search_messages(query: str):
+    add_document(
+        "history_chat",
+        {
+            "event_type": 2,
+            "client_id": "client_id",
+            "message": "TT",
+            "created_at": "",
+        },
+    )
+    search_query = {"query": {"match": {"message": query}}}
+    results = search("messages", search_query)
+    return {"results": results}
+
+
 # 藉由使用者名稱產生 client_id
 @app.get("/get_client_id")
 async def get_client_id(username: str = Query(...)):
@@ -58,8 +76,9 @@ async def get_client_id(username: str = Query(...)):
 async def websocket_endpoint(
     websocket: WebSocket, client_id: str, db: Session = Depends(get_db)
 ):
+    room_type = "chat"
     # 當客戶端連接時，調用 websocket_manager.connect 來處理連接。
-    await websocket_manager.connect(websocket, client_id)
+    await websocket_manager.connect(websocket, client_id, room_type)
     try:
         join_event = ChatEvent(
             event_type=1,
@@ -73,7 +92,8 @@ async def websocket_endpoint(
                 "type": "join",
                 "client_id": client_id,
                 "created_at": join_event.created_at.isoformat(),
-            }
+            },
+            room_type,
         )
         # 循環接收客戶端發送的訊息。
         while True:
@@ -85,6 +105,19 @@ async def websocket_endpoint(
             )
             db.add(message_event)
             db.commit()
+
+            # # Elasticsearch
+            # add_document(
+            #     "chat_events",
+            #     "event",
+            #     {
+            #         "event_type": 0,
+            #         "client_id": client_id,
+            #         "message": "",
+            #         "created_at": message_event.created_at.isoformat(),
+            #     },
+            # )
+
             # 接收到訊息後，通過 manager.broadcast 廣播訊息到所有連接。
             await websocket_manager.broadcast(
                 {
@@ -92,11 +125,12 @@ async def websocket_endpoint(
                     "client_id": client_id,
                     "message": data,
                     "created_at": message_event.created_at.isoformat(),
-                }
+                },
+                room_type,
             )
     except WebSocketDisconnect:
         # 如果捕獲到 WebSocketDisconnect 異常，說明客戶端斷開了連接。
-        websocket_manager.disconnect(websocket, client_id)
+        websocket_manager.disconnect(client_id, room_type)
         leave_event = ChatEvent(
             event_type=2,
             client_id=client_id,
@@ -110,5 +144,33 @@ async def websocket_endpoint(
                 "type": "leave",
                 "client_id": client_id,
                 "created_at": leave_event.created_at.isoformat(),
-            }
+            },
+            room_type,
+        )
+
+
+@app.websocket("/ws/webrtc/{client_id}")
+async def webrtc_websocket(websocket: WebSocket, client_id: str):
+    room_type = "video"
+    await websocket_manager.connect(websocket, client_id, room_type)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            print(data)
+            if data["type"] == "offer" or data["type"] == "answer":
+                await websocket_manager.broadcast(
+                    {"type": data["type"], "client_id": client_id}, room_type
+                )  # Send SDP to all other clients
+            elif data["type"] == "ice_candidate":
+                await websocket_manager.broadcast(
+                    {"type": data["type"], "client_id": client_id}, room_type
+                )  # Send ICE candidates to all other clients
+            elif data["type"] == "vedio_leave" or data["type"] == "vedio_join":
+                await websocket_manager.broadcast(
+                    {"type": data["type"], "client_id": client_id}, client_id, room_type
+                )
+    except WebSocketDisconnect:
+        websocket_manager.disconnect(client_id, room_type)
+        await websocket_manager.broadcast(
+            {"type": "vedio_leave", "client_id": client_id}, room_type
         )

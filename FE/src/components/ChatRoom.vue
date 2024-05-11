@@ -41,25 +41,39 @@
         <button type="submit">Send</button>
       </form>
     </div>
+    <button @click="toggleVideoChat">
+      {{ videoChatActive ? "關閉視訊" : "進入視訊" }}
+    </button>
+    <video-chat
+      v-if="videoChatActive"
+      :ws="ws"
+      :current-user-id="currentUserId"
+    ></video-chat>
   </div>
 </template>
 
 <script>
 import moment from "moment-timezone";
+import VideoChat from "./VideoChat.vue";
 
 export default {
   props: ["ws", "currentUserId"],
+  components: {
+    VideoChat,
+  },
   data() {
     return {
       newMessage: "",
       participantsCount: 0,
       messages: [],
       clientColors: {},
+      videoChatActive: false,
     };
   },
   mounted() {
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log(data);
       this.participantsCount = data.num_participants;
       const formattedTime =
         moment(data.created_at).format("YYYY-MM-DD HH:mm") + " 台灣";
@@ -111,13 +125,16 @@ export default {
       alert("你已離開聊天室！");
       this.$emit("left-chatroom");
     },
-    formatTimeToZone(
-      dateString,
-      zone = "Asia/Taipei",
-      formatStr = "yyyy-MM-dd HH:mm:ss"
-    ) {
-      const zonedDate = utcToZonedTime(dateString, zone);
-      return format(zonedDate, formatStr) + " 台灣";
+    // formatTimeToZone(
+    //   dateString,
+    //   zone = "Asia/Taipei",
+    //   formatStr = "yyyy-MM-dd HH:mm:ss"
+    // ) {
+    //   const zonedDate = utcToZonedTime(dateString, zone);
+    //   return format(zonedDate, formatStr) + " 台灣";
+    // },
+    toggleVideoChat() {
+      this.videoChatActive = !this.videoChatActive; // 切换视频聊天活跃状态
     },
   },
   updated() {

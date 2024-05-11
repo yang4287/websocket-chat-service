@@ -19,11 +19,14 @@ services:
       - 3307:3306
 
   elasticsearch:
-    image: elasticsearch:7.9.2
+    image: elasticsearch:8.13.4
     environment:
       - discovery.type=single-node
     volumes:
       - es-data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+      - 9300:9300
   
   # npm-tool:
   #   image: node:21-alpine
